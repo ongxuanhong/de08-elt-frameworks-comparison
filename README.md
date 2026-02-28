@@ -88,24 +88,3 @@ DELETE FROM inventory.customers
 WHERE email='cdc.updated@example.com';
 "
 ```
-
-# k3d cluster
-```bash
-k3d cluster create local-cluster \
-  --port 8080:80@loadbalancer \
-  --agents 2 \
-  --network airbyte-net
-```
-
-# Airbyte
-```bash
-curl -LsfS https://get.airbyte.com | bash -
-
-# install cluster
-# Update k3d config >> ~/.airbyte/abctl/abctl.kubeconfig
-abctl local install
-
-# get credentials  
-abctl local credentials
-abctl local uninstall
-```
