@@ -1,0 +1,41 @@
+# Meltano project: Kafka → S3 pipeline
+# Reads from Kafka topic postgres1.inventory.customers and loads to S3
+# See https://docs.meltano.com/getting-started/
+
+version: 1
+default_environment: dev
+project_id: kafka-to-s3
+environments:
+  - name: dev
+  - name: staging
+  - name: prod
+
+plugins:
+  extractors:
+    - name: tap-kafka
+      variant: transferwise
+      pip_url: pipelinewise-tap-kafka
+      config:
+        topic: postgres1.inventory.customers
+        bootstrap_servers: localhost:9092
+        group_id: meltano-kafka-to-s3
+        message_format: json
+        initial_start_time: earliest
+      # Optional: set in .env for overrides
+      # TAP_KAFKA_BOOTSTRAP_SERVERS, TAP_KAFKA_TOPIC, TAP_KAFKA_GROUP_ID
+
+  loaders:
+    - name: target-s3
+      variant: crowemi
+      pip_url: git+https://github.com/crowemi/target-s3.git
+      config:
+        cloud_provider.cloud_provider_type: aws
+        cloud_provider.aws.aws_region: us-east-1
+        # cloud_provider.aws.aws_bucket: set via TARGET_S3_CLOUD_PROVIDER_AWS_AWS_BUCKET in .env
+        format.format_type: parquet
+        prefix: postgres1/inventory/customers
+        append_date_to_prefix: true
+        append_date_to_filename: true
+      # Sensitive: set in .env
+      # TARGET_S3_CLOUD_PROVIDER_AWS_AWS_BUCKET, TARGET_S3_CLOUD_PROVIDER_AWS_AWS_ACCESS_KEY_ID,
+      # TARGET_S3_CLOUD_PROVIDER_AWS_AWS_SECRET_ACCESS_KEY

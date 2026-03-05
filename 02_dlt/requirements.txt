@@ -1,0 +1,8 @@
+# dlt
+dlt[filesystem,parquet,duckdb]==1.22.1
+
+# Kafka verified source dependency (Confluent Kafka API)
+confluent-kafka>=2.3.0
+pendulum>=2.0
+numpy
+pandas
