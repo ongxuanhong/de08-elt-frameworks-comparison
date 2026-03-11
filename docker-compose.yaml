@@ -11,7 +11,6 @@ services:
       - .env.docker
     networks:
       - default
-      - kind
 
   debezium:
     image: debezium/connect:3.0.0.Final
@@ -22,7 +21,6 @@ services:
       - .env.docker
     networks:
       - default
-      - kind
 
   kafka:
     image: confluentinc/cp-kafka:latest
@@ -39,7 +37,6 @@ services:
       retries: 5
     networks:
       - default
-      - kind
 
   minio:
     image: minio/minio
@@ -57,7 +54,6 @@ services:
       retries: 3
     networks:
       - default
-      - kind
 
   bucket-setup:
     image: minio/mc
@@ -83,7 +79,4 @@ services:
 
 networks:
   default:
-    driver: bridge
-  # For abctl (Kind): use "kind" so Postgres is on same network as airbyte-abctl-control-plane
-  kind:
-    external: true
+    name: event-streaming-net
