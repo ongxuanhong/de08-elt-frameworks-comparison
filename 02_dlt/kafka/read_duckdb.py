@@ -1,6 +1,6 @@
 import duckdb
 
-conn = duckdb.connect("./kafka_pipeline.duckdb", read_only=True)
+conn = duckdb.connect("../kafka_pipeline.duckdb", read_only=True)
 
 # List tables
 print(conn.execute("SHOW TABLES").fetchall())

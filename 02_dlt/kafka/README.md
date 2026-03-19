@@ -1,82 +1,109 @@
-# Kafka
+# Kafka → S3 with dlt
 
-> **Warning!**
->
-> This source is a Community source and was tested only once. Currently, we **don't test** it on a regular basis.
-> If you have any problem with this source, ask for help in our [Slack Community](https://dlthub.com/community).
+After `dlt init kafka filesystem`, you have:
 
-[Kafka](https://www.confluent.io/) is an open-source distributed event streaming platform, organized
-in the form of a log with message publishers and subscribers.
-The Kafka `dlt` verified source loads data using Confluent Kafka API to the destination of your choice,
-see a [pipeline example](https://github.com/dlt-hub/verified-sources/blob/master/sources/kafka_pipeline.py).
+- **`.dlt/`** – config and secrets
+- **`kafka_pipeline.py`** – generated pipeline (Kafka → filesystem/S3)
+- **`kafka_to_s3.py`** – same flow with Parquet and a simple `run_pipeline()` API
 
-The resource that can be loaded:
+## Next steps
 
-| Name              | Description                                |
-| ----------------- |--------------------------------------------|
-| kafka_consumer    | Extracts messages from Kafka topics        |
+### 1. Configure secrets
 
+Edit **`.dlt/secrets.toml`** and replace placeholders:
 
-## Initialize the pipeline
+**Kafka (required):**
 
-```bash
-dlt init kafka duckdb
+```toml
+[sources.kafka.credentials]
+bootstrap_servers = "your-broker:9092"
+group_id = "your_consumer_group"
+security_protocol = "SASL_SSL"   # or PLAINTEXT, SSL, SASL_PLAINTEXT
+sasl_mechanisms = "PLAIN"
+sasl_username = "your_username"
+sasl_password = "your_password"
 ```
 
-Here, we chose `duckdb` as the destination. Alternatively, you can also choose `redshift`,
-`bigquery`, or any of the other [destinations](https://dlthub.com/docs/dlt-ecosystem/destinations/).
+**S3 / filesystem (required):**
 
-## Setup verified source
+```toml
+[destination.filesystem]
+bucket_url = "s3://your-bucket-name"
 
-To grab Kafka credentials and configure the verified source, please refer to the
-[full documentation here.](https://dlthub.com/docs/dlt-ecosystem/verified-sources/kafka#grab-kafka-cluster-credentials)
+[destination.filesystem.credentials]
+aws_access_key_id = "your_key"
+aws_secret_access_key = "your_secret"
+```
 
-## Add credential
+If you use default AWS credentials (e.g. `~/.aws/credentials`), you can omit the `[destination.filesystem.credentials]` section.
 
-1. In the `.dlt` folder, there's a file called `secrets.toml`. It's where you store sensitive
-   information securely, like access tokens. Keep this file safe.
+**MinIO (S3-compatible):** use the same layout and set `endpoint_url` to your MinIO API endpoint:
 
-   Use the following format for service account authentication:
+```toml
+[destination.filesystem]
+bucket_url = "s3://your-bucket-name"
 
-   ```toml
-   [sources.kafka.credentials]
-   bootstrap_servers="web.address.gcp.confluent.cloud:9092"
-   group_id="test_group"
-   security_protocol="SASL_SSL"
-   sasl_mechanisms="PLAIN"
-   sasl_username="example_username"
-   sasl_password="example_secret"
-   ```
+[destination.filesystem.credentials]
+aws_access_key_id = "minio_access_key"
+aws_secret_access_key = "minio_secret_key"
+endpoint_url = "http://localhost:9000"
+```
 
-1. Next, follow the instructions in [Destinations](https://dlthub.com/docs/dlt-ecosystem/destinations/) to add credentials for
-   your chosen destination. This will ensure that your data is properly routed to its final
-   destination.
+Use `http://` for plain MinIO (e.g. `http://localhost:9000`) or `https://` if MinIO is behind TLS. Replace host/port with your MinIO server (e.g. `https://minio.example.com`).
 
-## Run the pipeline
+### 2. Install dependencies
 
-1. Before running the pipeline, ensure that you have installed all the necessary dependencies by
-   running the command:
+```bash
+pip install -r requirements.txt
+```
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 3. Choose and run a pipeline
 
-1. You're now ready to run the pipeline! To get started, run the following command:
+**Option A – Generated script** (`kafka_pipeline.py`):
 
-   ```bash
-   python kafka_pipeline.py
-   ```
+- Edit the topic(s) and which function runs in `if __name__ == "__main__"` (e.g. `load_from_several_topics()` or `load_starting_from_date()`).
+- Run:
+  ```bash
+  python kafka_pipeline.py
 
-1. Once the pipeline has finished running, you can verify that everything loaded correctly by using
-   the following command:
+  # duckdb
+  curl https://install.duckdb.org | sh
+  ```
 
-   ```bash
-   dlt pipeline <pipeline_name> show
-   ```
-   For example, the `pipeline_name` for the above pipeline example is `kafka_pipeline`, you may also use
-   any custom name instead.
+**Option B – Kafka → S3 helper** (`kafka_to_s3.py`):
 
-💡 To explore additional customizations for this pipeline, we recommend referring to the official
-`dlt` [Kafka](https://dlthub.com/docs/dlt-ecosystem/verified-sources/kafka) documentation. It
-provides comprehensive information and guidance on how to further customize and tailor the pipeline
-to suit your specific needs.
+- Set `TOPICS` in the `if __name__ == "__main__"` block.
+- Run:
+  ```bash
+  python kafka_to_s3.py
+  ```
+
+Data is written under the dataset name (e.g. `kafka_messages` or `kafka_data`) in your S3 bucket, in **Parquet** format when using the updated `kafka_pipeline.py` or `kafka_to_s3.py`.
+
+### 4. S3 path convention (e.g. `bronze/customer_a/event_streaming/inventory/customer`)
+
+By default, dlt writes to `{bucket_url}/{dataset_name}/{table_name}` where the table name is the Kafka topic name. To use a fixed path layout like:
+
+`bronze/customer_a/event_streaming/inventory/customer`
+
+1. Set **bucket_url** in `.dlt/secrets.toml` to the bucket (and optional prefix) only, e.g. `s3://bronze` (no `/postgres/customers`).
+2. Use **`kafka_to_s3.py`** with **`path_convention`**:
+
+```python
+from s3_path_convention import S3PathConvention
+from kafka_to_s3 import run_pipeline
+
+path_convention = S3PathConvention(
+    customer_id="customer_a",
+    schema="inventory",
+    table="customer",
+)
+run_pipeline(
+    ["postgres1_inventory_customers"],
+    path_convention=path_convention,
+)
+```
+
+Resulting path: `{bucket_url}/{customer_id}/event_streaming/{schema}/{table}` → e.g. `s3://bronze/customer_a/event_streaming/inventory/customer/`.
+
+For multiple topics, run once per topic with the right `S3PathConvention`, or pass `table_name` only (no convention) to override the table name for a single topic.
