@@ -13,7 +13,11 @@ pipeline = dlt.pipeline(
     dataset_name="github_data",
 )
 # The response contains a list of issues
-load_info = pipeline.run(response.json(), table_name="issues")
+load_info = pipeline.run(
+    response.json(),
+    table_name="issues",
+    write_disposition="replace",  # <-- Add this line
+)
 
 print(load_info)
 

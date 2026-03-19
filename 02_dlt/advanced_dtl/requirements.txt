@@ -3,3 +3,4 @@ dlt[workspace]
 numpy==2.4.3
 pandas==3.0.1
 pyarrow==23.0.1
+ruff==0.15.6
