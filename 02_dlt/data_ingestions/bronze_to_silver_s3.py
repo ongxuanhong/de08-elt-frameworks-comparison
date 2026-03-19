@@ -58,7 +58,8 @@ pipeline = dlt.pipeline(
     pipeline_name="bronze_to_silver_pipeline",
     dataset_name="event_streaming",
     destination=des_files,
+    progress="log"
 )
 
-info = pipeline.run(reader, write_disposition="replace", table_format="delta")
+info = pipeline.run(reader, write_disposition="append", table_format="delta")
 print(info)
