@@ -1,0 +1,2 @@
+dlt[duckdb,filesystem]>=1.23.0
+dlt[workspace]
